@@ -13,6 +13,8 @@ const routes = require('./routes/index');
 const helpers = require('./helpers');
 const errorHandlers = require('./handlers/errorHandlers');
 
+require('./handlers/passport');
+
 // create our Express app
 const app = express();
 
@@ -54,7 +56,7 @@ app.use(flash());
 app.use((req, res, next) => {
   res.locals.h = helpers;
   res.locals.flashes = req.flash();
-  res.locals.user = req.user || null;
+  res.locals.user = req.user || null; // passport makes user available to use, so we pass it to locals if its set
   res.locals.currentPath = req.path;
   next();
 });

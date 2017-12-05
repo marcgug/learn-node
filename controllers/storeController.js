@@ -55,12 +55,13 @@ exports.resize = async (req, res, next) => {
 }
 
 exports.createStore = async (req, res) => {
+  req.body.author = req.user._id;
   // save this data back to the database
   const store = await (new Store(req.body)).save();
   await store.save();
   req.flash('success', `Successfully created ${store.name}. Care to leave a review?`);
   console.log('It worked!');
-  res.redirect(`/store/${store.slug}`);
+  res.redirect(`/stores/${store.slug}`);
 };
 
 exports.updateStore = async (req, res) => {
@@ -84,11 +85,21 @@ exports.updateStore = async (req, res) => {
   res.redirect(`/stores/${store._id}/edit`);
 };
 
+const confirmOwner = (store, user) => {
+  if (!store.author.equals(user._id)) {
+    throw Error('You must own a store in order to edit it!');
+  }
+}
+
 exports.editStore = async (req, res) => {
   // 1. find the store given the id
-  // 2. confirm they are the OWNER of the store
-  // 3. render out edit form so user can update the store
   const store = await Store.findOne({_id: req.params.id});
+  // 2. confirm they are the OWNER of the store
+
+  // 3. render out edit form so user can update the store
+  confirmOwner(store, req.user);
+
+
   //res.json(store);
 
   res.render('editStore', {title: `Edit ${store.name}`, store: store});
@@ -103,8 +114,9 @@ exports.getStores = async (req, res) => {
   res.render('stores', {title: `Stores`, stores: stores}); 
 }
 
-exports.getStoreBySlug = async (req, res,  next) => {
-  const store = await Store.findOne({ slug: req.params.slug });
+exports.getStoreBySlug = async (req, res, next) => {
+  const store = await Store.findOne({ slug: req.params.slug })
+    .populate('author');
 
   if (!store) {
     return next();
@@ -114,4 +126,38 @@ exports.getStoreBySlug = async (req, res,  next) => {
   //res.json(store);
   //res.send('it works');
 
+}
+
+exports.getStoresByTag = async (req, res) => {
+  const tag = req.params.tag;
+
+  const tagQuery = tag || { $exists: true };
+
+  const tagsPromise = Store.getTagsList();
+  const storesPromise = Store.find({ tags: tagQuery });
+
+  // wait for multiple promises to return
+  const [tags, stores] = await Promise.all([tagsPromise, storesPromise]);
+
+  res.render('tag', { tags: tags, title: 'Tags', tag : tag, stores: stores});
+
+}
+
+exports.searchStores = async (req, res) => {
+  const stores = await Store
+  .find({
+    $text: {
+      $search: req.query.q,
+
+    }
+  }, {
+    score: { $meta: 'textScore' }
+
+  })
+  .sort({
+    score: { $meta: 'textScore' }
+  })
+  // limit to 
+  .limit(5);
+  res.json(stores);
 }

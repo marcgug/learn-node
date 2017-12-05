@@ -22,6 +22,7 @@ mongoose.connection.on('error', (err) => {
 // import all models
 // uses a singleton?
 require('./models/Store.js');
+require('./models/User.js');
 
 
 
