@@ -1,16 +1,21 @@
+
 const express = require('express');
 const router = express.Router();
 const storeController = require ('../controllers/storeController');
 
 const userController = require ('../controllers/userController');
 const authController = require ('../controllers/authController');
+const reviewController = require('../controllers/reviewController');
+
 // destructuring - creates a variable called catchErrors by importing only the method we need
 const { catchErrors } = require('../handlers/errorHandlers');
 
 // Do work here
 router.get('/', catchErrors(storeController.getStores));
 router.get('/stores', catchErrors(storeController.getStores));
+router.get('/stores/page/:page', catchErrors(storeController.getStores));
 router.get('/add', authController.isLoggedIn, storeController.addStore);
+router.get('/hearts', authController.isLoggedIn, catchErrors(storeController.getHeartedStores));
 
 // handle when user presses add on store create function
 router.post('/add', 
@@ -57,11 +62,16 @@ router.post('/account/reset/:token',
   catchErrors(authController.update)
 );
 
+router.get('/map', storeController.mapPage);
 
 // API
 router.get('/api/search', catchErrors(storeController.searchStores));
 router.get('/api/stores/near', catchErrors(storeController.mapStores));
+router.post('/api/stores/:id/heart', catchErrors(storeController.heartStore));
 
-router.get('/map', storeController.mapPage);
+router.post('/reviews/:storeId', authController.isLoggedIn, catchErrors(reviewController.createReview));
+router.get('/reviews/:storeId', catchErrors(reviewController.getReviews));
+
+router.get('/top', catchErrors(storeController.getTopStores));
 
 module.exports = router;

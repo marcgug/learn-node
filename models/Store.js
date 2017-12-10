@@ -39,6 +39,9 @@ const storeSchema = new mongoose.Schema({
     ref: 'User',
     required: 'You must supply an author'
   }
+},{
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
 storeSchema.index({
@@ -77,6 +80,57 @@ storeSchema.statics.getTagsList = function() {
     { $sort: { count: -1 }}
   ]);
 }
+
+storeSchema.statics.getTopStores = function() {
+  return this.aggregate([
+    // 1. lookup stores and populate reviews
+    // 2. filter for only items with 2 or more reviews
+    // 3. add the average reviews
+    // 4. sort by newest field, highest field
+    // 5. limit to at most 10.
+    { 
+      $lookup: { 
+        from: 'reviews', 
+        localField: '_id', 
+        foreignField: 'store', 
+        as: 'reviews'
+      } 
+    },
+    {
+      $match: {
+        'reviews.1': { $exists: true }
+      }
+    },
+    {
+      $addFields: {
+        averageRating: { $avg: '$reviews.rating' }
+      }
+    },
+    {
+      $sort: {
+        averageRating : -1
+      }
+    },
+    {
+      $limit: 10 
+    }
+
+  ]);
+}
+
+storeSchema.virtual('reviews', {
+  ref: 'Review',
+  localField: '_id',
+  foreignField: 'store'
+});
+
+function autopopulate(next) {
+  this.populate('reviews');
+  next();
+}
+
+storeSchema.pre('find', autopopulate);
+storeSchema.pre('findOne', autopopulate);
 
 // if main thing exporting from a file is going to be importable, do 
 // module.exports

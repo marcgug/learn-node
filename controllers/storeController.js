@@ -3,6 +3,7 @@ const Store = mongoose.model('Store');
 const multer = require('multer');
 const jimp = require('jimp');
 const uuid = require('uuid');
+const User = mongoose.model('User');
 
 const multerOptions = {
   // where to store?
@@ -108,15 +109,50 @@ exports.editStore = async (req, res) => {
 
 exports.getStores = async (req, res) => {
   // 1. query db for all stores
-  const stores = await Store.find();
-  console.log(stores);
+  const page = req.params.page || 1;
+  const limit = 4;
+  const skip = (page * limit) - limit;
 
-  res.render('stores', {title: `Stores`, stores: stores}); 
+  const storesPromise = Store
+    .find()
+    .skip(skip)
+    .limit(limit)
+    .sort({created: 'desc'});
+
+  const countPromise = Store.count();
+
+  const [stores, count] = await Promise.all([storesPromise, countPromise]);
+  //console.log(stores);
+
+  const pages = Math.ceil(count / limit);
+
+  if (!stores.length && skip) {
+    req.flash('info', `Hey! You asked for page ${page} that doesn't exist, so I put you on page ${pages}`)
+    res.redirect(`/stores/page/${pages}`);
+    return;
+  }
+
+  res.render('stores', {title: `Stores`, stores, page, pages, count}); 
+}
+
+exports.getHeartedStores = async (req, res) => {
+  
+  // find stores hearted by this user
+
+  const stores = await Store.find({
+    _id : {
+      $in : req.user.hearts
+    }
+  });
+
+  res.render('stores', {title: `Hearted Stores`, stores: stores});
+
 }
 
 exports.getStoreBySlug = async (req, res, next) => {
   const store = await Store.findOne({ slug: req.params.slug })
     .populate('author');
+
 
   if (!store) {
     return next();
@@ -186,4 +222,23 @@ exports.mapStores = async(req, res) => {
 
 exports.mapPage = (req, res) => {
   res.render('map', {title: 'Map'});
+}
+
+exports.heartStore = async (req, res) => {
+  const hearts = req.user.hearts.map(obj => obj.toString());
+
+  const operator = hearts.includes(req.params.id) ? '$pull' : '$addToSet';
+  const user = await User.findByIdAndUpdate(req.user._id, 
+    { [operator]: { hearts: req.params.id }},
+    { new: true }
+  );
+
+  console.log(hearts);
+  res.json(user);
+}
+
+exports.getTopStores = async (req, res) => {
+  const stores = await Store.getTopStores();
+  //res.json(stores);
+  res.render('topStores', {stores, title: '⭐ Top Stores!'});
 }

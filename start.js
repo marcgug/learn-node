@@ -23,6 +23,7 @@ mongoose.connection.on('error', (err) => {
 // uses a singleton?
 require('./models/Store.js');
 require('./models/User.js');
+require('./models/Review.js');
 
 
 
